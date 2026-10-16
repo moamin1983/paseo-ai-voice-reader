@@ -2,18 +2,21 @@
 // SPDX-License-Identifier: GPL-2.0-only
 
 import type {
+  PluginAgentPanelProps,
   PluginClientContext,
   PluginScreenProps,
   PluginWorkspacePanelProps,
 } from "@getpaseo/plugin/client";
 import { createReader, createHeaderPlan } from "./client/reader";
 import { createSettings } from "./client/settings";
+import { createVoiceRail } from "./client/rail";
 import { registerVoiceTimeline } from "./client/timeline";
 import { VoiceRuntime } from "./client/runtime";
 
 export default function contribute(client: PluginClientContext) {
   const runtime = new VoiceRuntime(client);
   const Reader = createReader(runtime);
+  const Rail = createVoiceRail(runtime);
   runtime.headerContent = createHeaderPlan(runtime);
   const cleanups = [
     registerVoiceTimeline(client, runtime),
@@ -34,6 +37,24 @@ export default function contribute(client: PluginClientContext) {
       icon: "Volume2",
       context: "workspace",
       Component: (p: PluginWorkspacePanelProps) => <Reader {...p} />,
+    }),
+    client.addWorkspacePanel({
+      id: "voice-rail",
+      title: "Voice",
+      icon: "Volume2",
+      context: "agent",
+      locations: ["explorer", "workspace"],
+      Component: (p: PluginAgentPanelProps) => <Rail {...p} />,
+    }),
+    client.addCommandCenterItem({
+      id: "rail",
+      title: "AI Voice Reader: open voice side panel",
+      icon: "PanelRight",
+      context: "agent",
+      onSelect: ({ agent, openPanel }) => {
+        runtime.select(agent.id);
+        openPanel("voice-rail", { location: "explorer" });
+      },
     }),
     client.addCommandCenterItem({
       id: "settings",

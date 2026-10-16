@@ -60,3 +60,75 @@ export function MessageActions({ theme, excluded, preview, canStart, canStop, ca
     <VoiceButton theme={theme} label="Preview" onPress={onPreview} expanded={preview} dense />
   </ScrollView>;
 }
+
+// ---- Compact controls used by the reading plan, inline rows and side panel ----
+export function TextButton({ theme, icon, label, onPress, disabled = false, active = false }: { theme: Theme; icon: string; label: string; onPress: () => void; disabled?: boolean; active?: boolean }) {
+  const color = active ? theme.colors.accent : theme.colors.foregroundMuted;
+  return <Pressable accessibilityRole="button" accessibilityLabel={label} disabled={disabled} onPress={onPress}
+    style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => ({
+      flexDirection: 'row', alignItems: 'center', gap: 4, height: 26, paddingHorizontal: 7, borderRadius: 6,
+      backgroundColor: pressed || hovered ? theme.colors.surface2 : 'transparent', opacity: disabled ? 0.4 : 1,
+    })}>
+    <Icon name={icon} size={12} color={color} />
+    <Text style={{ color, fontSize: 12 }}>{label}</Text>
+  </Pressable>;
+}
+export function IconButton({ theme, icon, label, onPress, disabled = false, primary = false }: { theme: Theme; icon: string; label: string; onPress: () => void; disabled?: boolean; primary?: boolean }) {
+  return <Pressable accessibilityRole="button" accessibilityLabel={label} disabled={disabled} onPress={onPress}
+    style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => ({
+      width: 30, height: 30, borderRadius: 8, alignItems: 'center', justifyContent: 'center',
+      backgroundColor: primary ? theme.colors.accent : pressed || hovered ? theme.colors.surface2 : 'transparent', opacity: disabled ? 0.4 : 1,
+    })}>
+    <Icon name={icon} size={15} color={primary ? theme.colors.accentForeground ?? theme.colors.surface0 : theme.colors.foreground} />
+  </Pressable>;
+}
+export function Chip({ theme, label, tone = 'muted' }: { theme: Theme; label: string; tone?: 'muted' | 'on' }) {
+  return <View style={{ paddingHorizontal: 7, paddingVertical: 1, borderRadius: 99, backgroundColor: theme.colors.surface2 }}>
+    <Text style={{ fontSize: 11, color: tone === 'on' ? theme.colors.accent : theme.colors.foregroundMuted }}>{label}</Text>
+  </View>;
+}
+export function SwitchRow({ theme, label, detail, value, onChange, disabled = false }: { theme: Theme; label: string; detail?: string; value: boolean; onChange: () => void; disabled?: boolean }) {
+  return <Pressable accessibilityRole="switch" accessibilityLabel={label} accessibilityState={{ checked: value, disabled }} disabled={disabled} onPress={onChange}
+    style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, opacity: disabled ? 0.5 : 1 }}>
+    <View style={{ flex: 1 }}>
+      <Text style={{ color: theme.colors.foreground, fontSize: 13 }}>{label}</Text>
+      {detail ? <Text style={{ color: theme.colors.foregroundMuted, fontSize: 11 }}>{detail}</Text> : null}
+    </View>
+    <View style={{ width: 32, height: 18, borderRadius: 9, padding: 2, backgroundColor: value ? theme.colors.accent : theme.colors.border, alignItems: value ? 'flex-end' : 'flex-start' }}>
+      <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: theme.colors.surface0 }} />
+    </View>
+  </Pressable>;
+}
+export function MiniPlayer({ runtime, theme, showStatus = true }: { runtime: VoiceRuntime; theme: Theme; showStatus?: boolean }) {
+  const audio = useVoice(runtime);
+  const busy = !!audio.current || !!audio.pending;
+  const paused = audio.status === 'paused' || audio.status === 'error';
+  return <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, flexShrink: 1 }}>
+    <IconButton theme={theme} icon="SkipBack" label="Previous" disabled={!runtime.queue.history().items.length} onPress={() => runtime.previous()} />
+    <IconButton theme={theme} icon="RotateCcw" label="Replay" onPress={() => runtime.queue.replay()} />
+    <IconButton theme={theme} icon={paused ? 'Play' : 'Pause'} label={paused ? 'Resume' : 'Pause'} primary disabled={!busy}
+      onPress={() => paused ? runtime.queue.resume() : runtime.queue.pause()} />
+    <IconButton theme={theme} icon="SkipForward" label="Next" disabled={!busy} onPress={() => runtime.next()} />
+    <IconButton theme={theme} icon="Square" label="Stop" disabled={!busy && !runtime.armed} onPress={() => runtime.stop()} />
+    {showStatus ? <Text accessibilityLiveRegion="polite" numberOfLines={1} style={{ color: theme.colors.foregroundMuted, fontSize: 12, marginLeft: 4, flexShrink: 1 }}>
+      {audio.status === 'stopping' ? 'Finishing sentence…' : busy ? `${audio.status} · ${audio.pending} left` : 'Idle'}
+    </Text> : null}
+  </View>;
+}
+// Light markdown for replaced rows: fenced code as a monospace block, headings bold.
+export function RichText({ text, theme, italic = false }: { text: string; theme: Theme; italic?: boolean }) {
+  const parts = removeMessageDividers(text).split(/```[^\n]*\n?/);
+  return <View style={{ gap: 6 }}>{parts.map((part, i) => {
+    if (!part.trim()) return null;
+    if (i % 2) return <View key={i} style={{ backgroundColor: theme.colors.surface2, borderRadius: 6, padding: 8 }}>
+      <Text selectable style={{ color: theme.colors.foreground, fontFamily: 'monospace', fontSize: 12, lineHeight: 18 }}>{part.replace(/\n$/, '')}</Text>
+    </View>;
+    return <Text key={i} selectable style={{ color: theme.colors.foreground, fontSize: 14, lineHeight: 22, fontStyle: italic ? 'italic' : 'normal' }}>
+      {part.trim().split('\n').map((line, j, all) => {
+        const heading = /^#{1,6}\s+/.test(line);
+        const body = line.replace(/^#{1,6}\s+/, '').replace(/\*\*(.+?)\*\*/g, '$1');
+        return <Text key={j} style={{ color: theme.colors.foreground, fontWeight: heading ? '700' : '400' }}>{body}{j < all.length - 1 ? '\n' : ''}</Text>;
+      })}
+    </Text>;
+  })}</View>;
+}

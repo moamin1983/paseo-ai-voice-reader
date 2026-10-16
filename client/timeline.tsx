@@ -2,78 +2,101 @@
 // SPDX-License-Identifier: GPL-2.0-only
 
 import { useEffect, useState } from 'react';
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { useRevealedText, Icon } from '@getpaseo/plugin/client/react-native';
 import type { PluginClientContext, PluginTimelineItemProps } from '@getpaseo/plugin/client';
-import { voiceRowSchema, kindLabel, spokenText, type VoiceRow } from '../shared/presentation';
+import { voiceRowSchema, spokenText, type VoiceRow } from '../shared/presentation';
 import { allowKind } from '../shared/text';
-import { FullText, MessageActions, Transport, VoiceButton, useVoice } from './voice-ui';
+import { Chip, FullText, MiniPlayer, RichText, TextButton, useVoice } from './voice-ui';
 import type { VoiceRuntime } from './runtime';
 
 export function createVoiceRow(runtime: VoiceRuntime) {
   return function VoiceRowView({ agentId, item, timestamp, theme, layout }: PluginTimelineItemProps<VoiceRow>) {
     const audio = useVoice(runtime);
     const data = item.data;
+    const thinking = data.kind === 'reasoning';
+    const mine = data.kind === 'user_message';
     const revealed = useRevealedText(data.text, data.phase);
-    const [expanded, setExpanded] = useState(data.kind !== 'reasoning');
-    const [preview, setPreview] = useState(false);
+    const [open, setOpen] = useState(!thinking);
+    const [more, setMore] = useState(false);
     useEffect(() => runtime.watchAgent(agentId), [agentId]);
     const source = runtime.resolveRow(agentId, data, timestamp);
+    const messages = runtime.feeds.get(agentId)?.reader.messages ?? [];
     const selection = runtime.selection(agentId);
-    const nextSpeech = audio.current ?? runtime.queue.items()[0];
-    const current = nextSpeech?.agentId === agentId && source?.id === nextSpeech?.messageId ? nextSpeech : undefined;
-    const active = !!current;
+    const current = audio.current ?? runtime.queue.items()[0];
+    const speaking = !!source && current?.agentId === agentId && current.messageId === source.id;
     const excluded = !!source && runtime.isExcluded(agentId, source.id);
     const allowed = allowKind(data.kind, runtime.settings);
     const readable = spokenText(data, runtime.settings);
     const complete = data.phase === 'complete';
     const canSelect = complete && !!source?.complete;
-    const start = source && selection?.start === source.id;
-    const end = source && selection?.end === source.id;
-    const muted = { color: theme.colors.foregroundMuted, fontSize: 12 };
+    const willRead = complete && allowed && !excluded && !!readable;
+    const index = source ? messages.findIndex(m => m.id === source.id) : -1;
+    const from = selection ? messages.findIndex(m => m.id === selection.start) : -1;
+    const to = selection ? messages.findIndex(m => m.id === selection.end) : -1;
+    const inRange = index >= 0 && from >= 0 && index >= from && index <= to;
+    const last = [...messages].reverse().find(m => m.complete);
     const read = () => runtime.playMessage(agentId, { id: source?.id ?? `row:${timestamp.getTime()}:${data.kind}`, kind: data.kind, text: data.text });
-    const mine = data.kind === 'user_message';
-    const thinking = data.kind === 'reasoning';
-    const agent = runtime.agents.get(agentId);
-    const role = mine ? 'You' : thinking ? 'Exposed thinking' : `Assistant · ${agent?.provider ?? 'AI'}`;
-    return <View accessibilityLabel={`${role} message`} style={{
-      gap: 8, padding: layout.compact ? 10 : 14, marginVertical: 8,
-      alignSelf: mine ? 'flex-end' : 'stretch', maxWidth: mine ? '92%' : '100%',
-      marginLeft: thinking ? (layout.compact ? 10 : 24) : 0,
-      borderRadius: mine ? 14 : 8,
-      backgroundColor: mine ? theme.colors.surface2 : theme.colors.surface0,
-    }}>
-      {start ? <Text style={{ color: theme.colors.accent, fontSize: 12, fontWeight: '600' }}>Start of selected range</Text> : null}
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-        <Icon name={data.kind === 'reasoning' ? 'Brain' : data.kind === 'user_message' ? 'User' : 'MessageSquare'} size={16} color={theme.colors.foregroundMuted} />
-        <Text style={{ color: theme.colors.foreground, fontSize: 14, fontWeight: '700' }}>{role}</Text>
-        <Text style={muted}>{data.phase === 'streaming' ? 'Streaming' : 'Complete'} · {!allowed ? 'Not included · filter off' : excluded ? 'Excluded' : readable ? 'Included' : 'No spoken text after filters'}</Text>
-      </View>
-      {active ? <View style={{ borderColor: theme.colors.accent, borderWidth: 1, borderRadius: 12, backgroundColor: theme.colors.surface0, padding: layout.compact ? 12 : 16, gap: 12 }}>
-        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}><Icon name="Volume2" size={16} color={theme.colors.accent} /><Text style={{ color: theme.colors.foreground, fontWeight: '600' }}>{audio.status === 'paused' ? 'Paused' : audio.status === 'error' ? 'Playback needs attention' : 'Reading'} {kindLabel(data.kind).toLowerCase()}</Text></View>
-        <FullText text={readable} current={current?.text} offset={current?.offset} theme={theme} />
-        <Transport runtime={runtime} theme={theme} />
-        {data.text !== readable ? <VoiceButton theme={theme} label={expanded ? 'Hide original message' : 'Show full original message'} icon="FileText" onPress={() => setExpanded(v => !v)} /> : null}
-        {expanded && data.text !== readable ? <FullText text={revealed} theme={theme} /> : null}
-      </View> : <>
-        {expanded ? <FullText text={revealed} theme={theme} /> : null}
-        {data.kind === 'reasoning' ? <VoiceButton theme={theme} label={expanded ? 'Collapse thinking text' : 'Show full thinking text'} icon={expanded ? 'ChevronDown' : 'ChevronRight'} onPress={() => setExpanded(v => !v)} /> : null}
-      </>}
-      <MessageActions theme={theme} excluded={excluded} preview={preview} canStart={complete} canExclude={!!source && allowed}
-        canStop={!!audio.current || !!audio.pending || runtime.armed}
-        onStart={read} onStop={() => runtime.stop()} onExclude={() => source && runtime.toggleExcluded(agentId, source.id)} onPreview={() => setPreview(v => !v)} />
-      {preview ? <View style={{ borderColor: theme.colors.border, borderWidth: 1, borderRadius: 10, padding: 10, gap: 8 }}>
-        <Text style={muted}>Full spoken text · {excluded ? 'excluded until included again' : allowed ? 'current filters' : 'content filter is off'}</Text>
-        <FullText text={readable || 'This message will not be narrated with the current filters.'} theme={theme} />
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-          <VoiceButton theme={theme} label="Start range here" onPress={() => source && runtime.setBoundary(agentId, source.id, 'start')} disabled={!canSelect} />
-          <VoiceButton theme={theme} label="End range here" onPress={() => source && runtime.setBoundary(agentId, source.id, 'end')} disabled={!canSelect} />
+    const readFromHere = () => source && last && runtime.playRange(agentId, source.id, last.id);
+    const status = !complete ? 'streaming' : speaking ? 'speaking' : !allowed ? 'filter off' : excluded ? 'skipped' : !readable ? 'nothing to read' : 'will read';
+    const role = mine ? 'You' : thinking ? 'Thinking' : runtime.agents.get(agentId)?.provider ?? 'Assistant';
+    const edge = speaking || inRange ? theme.colors.accent : willRead ? theme.colors.accent : 'transparent';
+    return <View accessibilityLabel={`${role} message`} style={{ marginVertical: 6 }}>
+      {selection?.start === source?.id && source ? <RangeLabel theme={theme} label="Reading range" icon="ChevronDown" /> : null}
+      <View style={{
+        paddingLeft: 12, paddingVertical: 4, gap: 4,
+        borderLeftWidth: inRange ? 4 : 2, borderColor: edge,
+        opacity: willRead || speaking || !complete ? 1 : 0.55,
+      }}>
+        <View style={thinking ? {
+          backgroundColor: theme.colors.surface1, borderRadius: 8, padding: layout.compact ? 8 : 10, gap: 4,
+          borderLeftWidth: 2, borderStyle: 'dashed', borderColor: theme.colors.foregroundMuted,
+        } : { gap: 4 }}>
+          <Pressable accessibilityRole="button" accessibilityLabel={thinking ? (open ? 'Collapse thinking' : 'Expand thinking') : `${role} header`}
+            disabled={!thinking} onPress={() => setOpen(v => !v)}
+            style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
+            <Icon name={thinking ? 'Brain' : mine ? 'User' : 'MessageSquare'} size={14} color={thinking ? theme.colors.foregroundMuted : theme.colors.foreground} />
+            <Text style={{ color: thinking ? theme.colors.foregroundMuted : theme.colors.foreground, fontSize: 13, fontWeight: '600' }}>{role}</Text>
+            <Chip theme={theme} label={speaking ? 'speaking' : status} tone={willRead || speaking ? 'on' : 'muted'} />
+            {thinking && !open ? <Text style={{ color: theme.colors.foregroundMuted, fontSize: 11 }}>· tap to expand</Text> : null}
+          </Pressable>
+          {speaking
+            ? <FullText text={readable} current={current?.text} offset={current?.offset} theme={theme} />
+            : open
+              ? <RichText text={revealed} theme={theme} italic={thinking} />
+              : <Text numberOfLines={1} style={{ color: theme.colors.foregroundMuted, fontSize: 13, fontStyle: 'italic' }}>{revealed}</Text>}
         </View>
-      </View> : null}
-      {complete && !source ? <Text style={muted}>Range actions become available when this message is loaded in the reading plan. Identical messages without a source match can be selected there.</Text> : null}
-      {end ? <Text style={{ color: theme.colors.accent, fontSize: 12, fontWeight: '600' }}>End of selected range</Text> : null}
+        {speaking ? <MiniPlayer runtime={runtime} theme={theme} /> : null}
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 2 }}>
+          <TextButton theme={theme} icon="Play" label="Read from here" disabled={!canSelect || !last} onPress={readFromHere} />
+          <TextButton theme={theme} icon="Volume2" label="Read" disabled={!complete} onPress={read} />
+          <TextButton theme={theme} icon={excluded ? 'EyeOff' : 'Check'} label={excluded ? 'Skipped' : 'Included'} active={!excluded && allowed}
+            disabled={!source || !allowed} onPress={() => source && runtime.toggleExcluded(agentId, source.id)} />
+          {speaking ? <TextButton theme={theme} icon="Pin" label="Show in side panel" onPress={() => runtime.showNowPlaying(agentId)} /> : null}
+          <TextButton theme={theme} icon="Ellipsis" label="More voice actions" onPress={() => setMore(v => !v)} active={more} />
+        </View>
+        {more ? <View style={{ gap: 6, paddingTop: 2 }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 2 }}>
+            <TextButton theme={theme} icon="ArrowDownToLine" label="Range start" disabled={!canSelect} onPress={() => source && runtime.setBoundary(agentId, source.id, 'start')} />
+            <TextButton theme={theme} icon="ArrowUpToLine" label="Range end" disabled={!canSelect} onPress={() => source && runtime.setBoundary(agentId, source.id, 'end')} />
+            {selection ? <TextButton theme={theme} icon="X" label="Clear range" onPress={() => runtime.clearRange(agentId)} /> : null}
+            <TextButton theme={theme} icon="TextSelect" label="Pick part to read" disabled={!complete || !readable}
+              onPress={() => runtime.focusMessage(agentId, { id: source?.id ?? `row:${timestamp.getTime()}:${data.kind}`, kind: data.kind, text: data.text })} />
+          </View>
+          <Text style={{ color: theme.colors.foregroundMuted, fontSize: 11 }}>Spoken text · {excluded ? 'skipped' : allowed ? 'current filters' : 'content filter is off'}</Text>
+          <FullText text={readable || 'Nothing will be read from this message with the current filters.'} theme={theme} />
+          {complete && !source ? <Text style={{ color: theme.colors.foregroundMuted, fontSize: 11 }}>Range actions unlock once this message is matched in the reading plan.</Text> : null}
+        </View> : null}
+      </View>
+      {selection?.end === source?.id && source ? <RangeLabel theme={theme} label="End of range" icon="ChevronUp" /> : null}
     </View>;
   };
+}
+function RangeLabel({ theme, label, icon }: { theme: PluginTimelineItemProps['theme']; label: string; icon: string }) {
+  return <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginVertical: 4 }}>
+    <Icon name={icon} size={12} color={theme.colors.accent} />
+    <Text style={{ color: theme.colors.accent, fontSize: 11, fontWeight: '600', letterSpacing: 0.5 }}>{label.toUpperCase()}</Text>
+  </View>;
 }
 export function registerVoiceTimeline(client: PluginClientContext, runtime: VoiceRuntime) {
   const removeRenderer = client.addTimelineRenderer({ kind: 'voice-message', version: 1, schema: voiceRowSchema, Component: createVoiceRow(runtime) });
@@ -97,10 +120,10 @@ export function registerVoiceTimeline(client: PluginClientContext, runtime: Voic
     if (!next) return;
     // Removing the registrations makes the host rebuild existing rows using its
     // original renderers. A captured settings flag alone would leave memoized rows.
+    // Sent messages are never replaced: the host renders their images and attachments.
     transformers = [
       client.addTimelineTransformer({ id: 'voice-assistant', query: { itemType: 'assistant_message' }, transform }),
       client.addTimelineTransformer({ id: 'voice-thinking', query: { itemType: 'reasoning' }, transform }),
-      client.addTimelineTransformer({ id: 'voice-sent', query: { itemType: 'user_message' }, transform }),
     ];
   };
   sync();

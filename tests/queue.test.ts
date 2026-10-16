@@ -181,3 +181,34 @@ test('excluding a message removes its queued sentences while preserving other se
   assert.deepEqual(played, ['one', 'other']);
   q.dispose();
 });
+
+test("previous steps back one sentence per press and next steps forward", async () => {
+  const gates: (() => void)[] = [];
+  const played: string[] = [];
+  const q = new AudioQueue(
+    async (s) => ({ ...audio, base64: s.text }),
+    async (a) => { played.push(a.base64); await new Promise<void>((r) => gates.push(r)); },
+  );
+  const finish = async () => { await tick(); gates.shift()?.(); await tick(); };
+  q.enqueue([speech("one"), speech("two"), speech("three"), speech("four")]);
+  await tick();
+  await finish(); // one
+  await finish(); // two
+  assert.deepEqual(played, ["one", "two", "three"]);
+  q.previous(); // while "three" plays: go back to "two"
+  q.previous(); // and once more to "one"
+  await finish(); // three ends, then one starts
+  assert.deepEqual(played, ["one", "two", "three", "one"]);
+  await finish(); // one ends, two continues forward
+  assert.equal(played.at(-1), "two");
+  q.next(); // finish "two" early
+  q.next(); // and skip "three"
+  await finish();
+  assert.equal(played.at(-1), "four");
+  await finish();
+  assert.equal(q.snapshot().status, "idle");
+  q.previous(); // idle: replays the last sentence
+  await tick();
+  assert.equal(played.at(-1), "four");
+  q.dispose();
+});

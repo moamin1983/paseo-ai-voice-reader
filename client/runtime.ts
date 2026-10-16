@@ -236,6 +236,18 @@ export class VoiceRuntime {
       (s) => client.rpc(synthesize, { text: s.text, kind: s.kind }),
       (a) => client.playAudio(a),
     );
+    this.queue.subscribe(() => this.updateHeaders());
+  }
+  private headerLabel = "";
+  private updateHeaders() {
+    const { status, pending, current } = this.queue.snapshot();
+    const label = status === "paused" ? "Paused"
+      : status === "error" ? "Voice needs attention"
+      : current || pending ? `Reading · ${pending} left`
+      : "Reading plan";
+    if (label === this.headerLabel) return;
+    this.headerLabel = label;
+    for (const header of this.headers.values()) header.update({ label });
   }
   subscribe = (fn: () => void) => {
     this.listeners.add(fn);
@@ -447,7 +459,7 @@ export class VoiceRuntime {
           workspaceId,
           button: {
             title: "What will be read",
-            label: "Reading plan",
+            label: this.headerLabel || "Reading plan",
             icon: "Volume2",
             behavior: this.headerContent ? { kind: "popover", Content: this.headerContent } : {
               kind: "menu",
@@ -700,7 +712,8 @@ export class VoiceRuntime {
     else { this.exclusions.add(key); this.queue.removeMessage(id, messageId); }
     this.changed();
   }
-  playMessage(id: string, message: Pick<ReadMessage, "id" | "kind" | "text">) {
+  /** Read a message; `from`/`to` are offsets into its spoken (filtered) text. */
+  playMessage(id: string, message: Pick<ReadMessage, "id" | "kind" | "text">, from = 0, to?: number) {
     if (!this.settings.enabled || !allowKind(message.kind, this.settings)) {
       this.notice = "Enable this content type in Voice settings before reading it.";
       this.changed();
@@ -709,12 +722,55 @@ export class VoiceRuntime {
     }
     const text = sanitize(message.text, this.settings);
     if (!text) { this.error("No readable text after filtering."); return; }
+    const section = to !== undefined && to > from;
+    // A selected section is segmented on its own; otherwise the whole message is
+    // queued so Previous can step back to sentences before the starting point.
+    const segments = section
+      ? speechSegments(text.slice(from, to)).map(s => ({ ...s, offset: s.offset + from }))
+      : speechSegments(text);
+    if (!segments.length) { this.error("Nothing readable in that selection."); return; }
+    const start = section ? 0 : Math.max(0, segments.findLastIndex(s => s.offset <= from));
     this.select(id);
     this.stop();
-    this.queue.enqueue(speechSegments(text).map(segment => ({ agentId: id, messageId: message.id, kind: message.kind, ...segment })));
-    this.queue.resume();
+    const base = this.queue.history().items.length;
+    this.queue.enqueue(segments.map(segment => ({ agentId: id, messageId: message.id, kind: message.kind, ...segment })));
+    this.queue.seek(base + start);
     this.notice = "";
     this.changed();
+  }
+  /** Load a message into Now playing, paused at its first sentence, so a part can be picked. */
+  focusMessage(id: string, message: Pick<ReadMessage, "id" | "kind" | "text">) {
+    const text = sanitize(message.text, this.settings);
+    if (!text) { this.error("No readable text after filtering."); return; }
+    this.select(id);
+    this.stop();
+    const base = this.queue.history().items.length;
+    this.queue.enqueue(speechSegments(text).map(segment => ({ agentId: id, messageId: message.id, kind: message.kind, ...segment })));
+    this.queue.cue(base);
+    this.showNowPlaying(id);
+  }
+  previous() { this.queue.previous(); }
+  next() { this.queue.next(); }
+  /** Message text (spoken form) for what is playing now, or what played last. */
+  nowPlaying() {
+    const { items, playing, next } = this.queue.history();
+    const speech = items[playing] ?? items[next] ?? items[next - 1];
+    if (!speech) return undefined;
+    const source = this.feeds.get(speech.agentId)?.reader.messages.find(m => m.id === speech.messageId);
+    const sentences = source
+      ? speechSegments(sanitize(source.text, this.settings))
+      : items.filter(s => s.agentId === speech.agentId && s.messageId === speech.messageId).map(s => ({ text: s.text, offset: s.offset ?? 0 }));
+    return { speech, source, sentences, active: playing >= 0 };
+  }
+  /** Side panel tab: true focuses on what is playing, false lists all messages. */
+  railFocus = false;
+  setRailFocus(value: boolean) { this.railFocus = value; this.changed(); }
+  /** Open the side panel focused on the current playback. */
+  showNowPlaying(agentId: string) {
+    const workspaceId = this.agents.get(agentId)?.workspaceId;
+    this.railFocus = true;
+    this.changed();
+    if (workspaceId) this.client.openPanel("voice-rail", { workspaceId, agentId, location: "explorer" });
   }
   async loadOlder(id: string) {
     const feed = this.feeds.get(id);

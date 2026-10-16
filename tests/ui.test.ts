@@ -19,7 +19,7 @@ import type { PluginClientContext } from "@getpaseo/plugin/client";
 async function components() {
   const r = await build({
     stdin: {
-      contents: `export {createReader} from './client/reader'; export {createSettings} from './client/settings'; export {createVoiceRow,registerVoiceTimeline} from './client/timeline'; export {createHeaderPlan} from './client/reader'; export {default as contributeClient} from './index.client';`,
+      contents: `export {createReader} from './client/reader'; export {createSettings} from './client/settings'; export {createVoiceRow,registerVoiceTimeline} from './client/timeline'; export {createHeaderPlan} from './client/reader'; export {createVoiceRail} from './client/rail'; export {default as contributeClient} from './index.client';`,
       resolveDir: process.cwd(),
       loader: "tsx",
     },
@@ -47,7 +47,7 @@ async function components() {
             loader: "js",
             contents:
               a.path === "react-native"
-                ? `export const View='View',Text='Text',ScrollView='ScrollView',Pressable='Pressable';`
+                ? `export const View='View',Text='Text',ScrollView='ScrollView',Pressable='Pressable',TextInput='TextInput';`
                 : a.path.endsWith("/react-native")
                   ? `export const Icon='Icon'; export const useRevealedText=(text)=>text;`
                 : a.path.endsWith("/ui")
@@ -162,19 +162,21 @@ test("native reader and settings render in compact/wide layouts and light/dark t
         for (const text of texts)
           assert.ok(
             text.props.style?.color,
-            `Missing theme color in ${theme.name}/${compact}`,
+            `Missing theme color in ${theme.name}/${compact}: ${JSON.stringify(text.props.style)} ${text.children.filter((c: any) => typeof c === "string").join("").slice(0, 60)}`,
           );
         for (const label of [
           "Play",
           "Test voice",
           "Pause",
           "Stop",
-          "Skip",
+          "Previous",
+          "Next",
           "Replay",
-          "Voice On",
-          "Start reading",
-          "Exclude",
-          "Preview",
+          "Auto-read new replies",
+          "Voice controls in messages",
+          "Open voice side panel",
+          "Read codex message",
+          "Read codex message now",
         ])
           assert.ok(
             cleanup.root
@@ -241,7 +243,7 @@ test("client entry cleanup and reload register surfaces exactly once per load", 
   for (let i = 0; i < 2; i++) {
     const cleanup = contributeClient(client);
     await new Promise((r) => setImmediate(r));
-    assert.equal(active, 7);
+    assert.equal(active, 9);
     await cleanup();
     assert.equal(active, 0);
   }
@@ -283,17 +285,17 @@ test('expanded plan and inline rows share ranges, reveal full thinking and retai
         ));
       });
       assert.match(texts(), /Final visible sentence/);
-      assert.equal(view.root.findAllByType('Text' as any).filter(n => n.props.numberOfLines !== undefined).length, 0);
-      await press('Show full thinking text');
-      await press('Preview', 0);
-      await press('Preview', 1);
-      await press('Start range here', 0);
-      await press('End range here', 1);
-      assert.match(texts(), /Start of selected range/);
-      assert.match(texts(), /End of selected range/);
-      assert.match(texts(), /Selected reading range/);
-      await press('Exclude', 0);
-      await press('Play');
+      await press('Expand thinking');
+      assert.match(texts(), /Exposed thinking in full/);
+      await press('More voice actions', 0);
+      await press('More voice actions', 1);
+      await press('Range start', 0);
+      await press('Range end', 1);
+      assert.match(texts(), /READING RANGE/);
+      assert.match(texts(), /END OF RANGE/);
+      assert.match(texts(), /Selected range/);
+      await press('Included', 0);
+      await press('Play range');
       assert.ok(played.length > 1);
       assert.equal(played.some(s => s.includes('Exposed thinking')), false);
       assert.equal(played.some(s => s.includes('Please review')), false);
@@ -323,7 +325,7 @@ test('inline playback keeps Resume beside a message paused between sentences', a
   const press = async (label: string) => { await act(async () => { view.root.findAllByType('Pressable' as any).find(n => n.props.accessibilityLabel === label)!.props.onPress(); }); };
   try {
     await act(async () => { view = create(React.createElement(Row, { theme: themes[1], layout: { compact: false }, agentId: 'a', timestamp: new Date(), item: { data: { kind: 'assistant_message', text: 'First. Second.', phase: 'complete' } } })); });
-    await press('Start reading');
+    await press('Read');
     await press('Pause');
     await act(async () => { release(); await new Promise(r => setImmediate(r)); });
     assert.equal(runtime.queue.snapshot().status, 'paused');
@@ -358,7 +360,7 @@ test('live appearance toggle restores host rows without restarting agents or tou
     runtime.target = 'a';
     const settings = runtime.settings;
     runtime.setSettings({ ...settings, inlineControls: true });
-    assert.equal(transforms.size, 3);
+    assert.equal(transforms.size, 2);
     const assistant = transforms.get('voice-assistant');
     const source = { type: 'assistant_message', text: 'Hello.' };
     assert.equal(assistant.transform({ item: source, phase: 'complete' }).items[0].kind, 'voice-message');
@@ -369,7 +371,7 @@ test('live appearance toggle restores host rows without restarting agents or tou
     assert.equal(runtime.target, 'a');
     runtime.setSettings({ ...settings, inlineControls: true });
     runtime.changed();
-    assert.equal(transforms.size, 3); // no duplicate registrations on unrelated updates
+    assert.equal(transforms.size, 2); // no duplicate registrations on unrelated updates
   } finally { cleanup(); cleanup(); runtime.dispose(); }
   assert.equal(transforms.size, 0);
   assert.equal(rendererCount, 0);
@@ -417,10 +419,10 @@ test('header saves appearance with official settings and keeps four message acti
       await act(async () => { view = create(React.createElement(Plan, { ...props, workspaceId: 'w', context: 'workspace', close() {} })); });
       assert.equal(view.root.findAllByType('SettingsSelect' as any).length, 0);
       assert.equal(registrations.size, 0);
-      await press('Show message voice UI');
-      assert.equal(registrations.size, 3);
+      await press('Voice controls in messages');
+      assert.equal(registrations.size, 2);
       assert.equal(runtime.settings.inlineControls, true);
-      await press('Hide message voice UI');
+      await press('Voice controls in messages');
       assert.equal(registrations.size, 0);
       await press('Expand reading plan');
       assert.equal(view.root.findAllByType('SettingsSelect' as any).length, 1);
@@ -431,17 +433,103 @@ test('header saves appearance with official settings and keeps four message acti
       assert.equal(values.backend, 'kokoro');
       await act(async () => { view.update(React.createElement(React.Fragment, null, ...reader.messages.map(m => React.createElement(Row, { ...props, key: m.id, agentId: 'a', timestamp: new Date(), item: { data: { kind: m.kind, text: m.text, phase: 'complete' } } })))); });
       const rows = view.root.findAllByType('View' as any).filter(n => / message$/.test(n.props.accessibilityLabel ?? ''));
-      assert.deepEqual(rows.map(n => n.props.accessibilityLabel), ['You message', 'Exposed thinking message', 'Assistant · codex message']);
-      assert.equal(rows[0].props.style.alignSelf, 'flex-end');
-      assert.equal(rows[1].props.style.marginLeft > 0, true);
-      assert.equal(rows[2].props.style.alignSelf, 'stretch');
-      const actionRows = view.root.findAllByType('ScrollView' as any).filter(n => n.props.horizontal);
-      assert.equal(actionRows.length, 3);
-      for (const row of actionRows) {
-        assert.equal(row.props.contentContainerStyle.flexWrap, undefined);
-        assert.deepEqual(row.findAllByType('Pressable' as any).map(n => n.props.accessibilityLabel), ['Start reading', 'Stop', 'Exclude', 'Preview']);
+      assert.deepEqual(rows.map(n => n.props.accessibilityLabel), ['You message', 'Thinking message', 'codex message']);
+      const strip = ['Read from here', 'Read', 'Included', 'More voice actions'];
+      for (const row of rows.slice(1)) {
+        const labels = row.findAllByType('Pressable' as any).map(n => n.props.accessibilityLabel);
+        for (const label of strip) assert.ok(labels.includes(label), label);
+        assert.equal(labels.includes('Stop'), false, 'stop lives in the player, not on every message');
       }
       assert.equal(view.root.findAllByType('Text' as any).some(n => n.children.includes('Response.\n---\nMore detail.')), false);
     } finally { await act(async () => view?.unmount()); cleanup(); runtime.dispose(); }
   }
+});
+
+test('voice side panel adds controls without replacing Paseo message rendering', async () => {
+  const { createVoiceRail, createHeaderPlan } = await components();
+  const transformers: string[] = [];
+  const opened: any[] = [];
+  const client = {
+    addTimelineRenderer: () => () => {},
+    addTimelineTransformer: (entry: any) => { transformers.push(entry.id); return () => {}; },
+    openPanel: (id: string, options: any) => { opened.push({ id, ...options }); },
+    playAudio: async () => {}, openSettings() {},
+  } as unknown as PluginClientContext;
+  const runtime = new VoiceRuntime(client);
+  runtime.settings = settingsSchema.parse({ enabled: true, backend: 'kokoro' });
+  runtime.agents.set('a', { id: 'a', workspaceId: 'w', provider: 'codex', title: 'Example agent' });
+  const { TimelineReader } = await import('../shared/timeline');
+  const reader = new TimelineReader('a', () => runtime.settings, () => {});
+  reader.ingest('e', [
+    { seqStart: 0, seqEnd: 0, item: { type: 'user_message', text: 'A sent message with an image.' } },
+    { seqStart: 1, seqEnd: 1, item: { type: 'assistant_message', text: 'Response one.' } },
+    { seqStart: 2, seqEnd: 2, item: { type: 'user_message', text: 'Follow-up question.' } },
+    { seqStart: 3, seqEnd: 3, item: { type: 'assistant_message', text: 'Response two.' } },
+  ], false, true);
+  runtime.feeds.set('a', { reader, dispose() {} } as any);
+  assert.equal(reader.messages.length, 4);
+  const Rail = createVoiceRail(runtime), Plan = createHeaderPlan(runtime);
+  const props = { theme: themes[1], host: { id: 'local', label: 'Local' }, layout: { compact: false, platform: 'web' } };
+  let view!: ReactTestRenderer;
+  const pressables = () => view.root.findAllByType('Pressable' as any);
+  try {
+    await act(async () => { view = create(React.createElement(Rail, { ...props, context: 'agent', workspaceId: 'w', agentId: 'a' })); });
+    assert.deepEqual(transformers, [], 'the side panel must not replace host timeline rows');
+    assert.equal(pressables().filter(n => n.props.accessibilityLabel === 'Read').length, 4);
+    const skip = pressables().filter(n => n.props.accessibilityLabel === 'Skip');
+    await act(async () => { skip[3].props.onPress(); });
+    assert.equal(runtime.isExcluded('a', reader.messages[3].id), true);
+    assert.equal(pressables().filter(n => n.props.accessibilityLabel === 'Include').length, 1);
+    await act(async () => { view.update(React.createElement(Plan, { ...props, workspaceId: 'w', close() {} })); });
+    await act(async () => { pressables().find(n => n.props.accessibilityLabel === 'Open voice side panel')!.props.onPress(); });
+    assert.deepEqual(opened, [{ id: 'voice-rail', workspaceId: 'w', agentId: 'a', location: 'explorer' }]);
+  } finally { await act(async () => view?.unmount()); runtime.dispose(); }
+});
+
+test('side panel tabs switch between now playing and all messages, with sentence and section playback', async () => {
+  const { createVoiceRail } = await components();
+  const synthesized: string[] = [];
+  const client = {
+    addTimelineRenderer: () => () => {}, addTimelineTransformer: () => () => {},
+    openPanel: () => {}, openSettings() {},
+    rpc: async (_c: any, input: any) => { synthesized.push(input.text); return { base64: input.text, mimeType: 'audio/wav' }; },
+    playAudio: () => new Promise<void>(() => {}),
+  } as unknown as PluginClientContext;
+  const runtime = new VoiceRuntime(client);
+  runtime.settings = settingsSchema.parse({ enabled: true, backend: 'kokoro' });
+  runtime.agents.set('a', { id: 'a', workspaceId: 'w', provider: 'codex', title: 'Example agent' });
+  const { TimelineReader } = await import('../shared/timeline');
+  const reader = new TimelineReader('a', () => runtime.settings, () => {});
+  reader.ingest('e', [
+    { seqStart: 0, seqEnd: 0, item: { type: 'user_message', text: 'Question?' } },
+    { seqStart: 1, seqEnd: 1, item: { type: 'assistant_message', text: 'Alpha one. Beta two. Gamma three.' } },
+  ], false, true);
+  runtime.feeds.set('a', { reader, dispose() {} } as any);
+  const Rail = createVoiceRail(runtime);
+  const props = { theme: themes[1], host: { id: 'local', label: 'Local' }, layout: { compact: false, platform: 'web' }, context: 'agent', workspaceId: 'w', agentId: 'a' };
+  let view!: ReactTestRenderer;
+  const find = (label: string) => view.root.findAllByType('Pressable' as any).find(n => n.props.accessibilityLabel === label);
+  const press = async (label: string) => { const b = find(label); assert.ok(b, label); await act(async () => { b!.props.onPress(); await new Promise(r => setImmediate(r)); }); };
+  try {
+    await act(async () => { view = create(React.createElement(Rail, props)); });
+    assert.ok(find('Read'), 'all messages tab is the default');
+    await press('Now playing');
+    assert.equal(find('Read'), undefined, 'now playing hides the message list');
+    await press('All messages');
+    const pick = view.root.findAllByType('Pressable' as any).filter(n => n.props.accessibilityLabel === 'Pick part');
+    assert.equal(pick[0].props.disabled, true, 'sent messages are not narrated by default');
+    await act(async () => { pick[1].props.onPress(); });
+    assert.equal(runtime.railFocus, true);
+    assert.deepEqual(synthesized, [], 'pick part loads the message without playing');
+    await press('Play from sentence 2');
+    assert.equal(synthesized.at(-1), 'Beta two.');
+    await press('Select text');
+    const input = view.root.findByType('TextInput' as any);
+    await act(async () => { input.props.onSelectionChange({ nativeEvent: { selection: { start: 11, end: 20 } } }); });
+    await press('Play selection');
+    assert.equal(synthesized.at(-1), 'Beta two.');
+    assert.equal(runtime.queue.snapshot().pending, 1, 'a selection queues only the selected part');
+    await press('All messages');
+    assert.ok(find('Read'));
+  } finally { await act(async () => view?.unmount()); runtime.dispose(); }
 });

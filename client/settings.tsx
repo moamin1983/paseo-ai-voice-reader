@@ -185,7 +185,7 @@ function Controls({
       </SettingsSection>
       <SettingsSection title="Message appearance">
         <SettingsCard>
-          {toggle("inlineControls", "Show voice controls on messages", "Off restores Paseo's original message, assistant and thinking UI immediately. Audio playback is unchanged.")}
+          {toggle("inlineControls", "Inline voice messages (replaces Paseo's message view)", "Experimental. Paseo's plugin API can only replace whole messages, so markdown, images and attachments are not shown while this is on. Prefer the Voice side panel, which leaves the conversation untouched.")}
           {toggle("compactPlan", "Compact reading plan", "Keep the header plan small; expand it for full text and range selection.")}
         </SettingsCard>
       </SettingsSection>
