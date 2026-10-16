@@ -19,7 +19,7 @@ import type { PluginClientContext } from "@getpaseo/plugin/client";
 async function components() {
   const r = await build({
     stdin: {
-      contents: `export {createReader} from './client/reader'; export {createSettings} from './client/settings'; export {createVoiceRow} from './client/timeline'; export {createHeaderPlan} from './client/reader'; export {default as contributeClient} from './index.client';`,
+      contents: `export {createReader} from './client/reader'; export {createSettings} from './client/settings'; export {createVoiceRow,registerVoiceTimeline} from './client/timeline'; export {createHeaderPlan} from './client/reader'; export {default as contributeClient} from './index.client';`,
       resolveDir: process.cwd(),
       loader: "tsx",
     },
@@ -122,7 +122,7 @@ test("native reader and settings render in compact/wide layouts and light/dark t
         },
         dispose() {},
       } as any);
-      const values = settingsSchema.parse({});
+      const values = settingsSchema.parse({ compactPlan: false });
       (globalThis as any).__voiceSettings = {
         status: "ready",
         values,
@@ -172,8 +172,9 @@ test("native reader and settings render in compact/wide layouts and light/dark t
           "Skip",
           "Replay",
           "Voice On",
-          "Start reading here",
-          "Stop reading here",
+          "Start reading",
+          "Exclude",
+          "Preview",
         ])
           assert.ok(
             cleanup.root
@@ -240,7 +241,7 @@ test("client entry cleanup and reload register surfaces exactly once per load", 
   for (let i = 0; i < 2; i++) {
     const cleanup = contributeClient(client);
     await new Promise((r) => setImmediate(r));
-    assert.equal(active, 10);
+    assert.equal(active, 7);
     await cleanup();
     assert.equal(active, 0);
   }
@@ -254,7 +255,7 @@ test('expanded plan and inline rows share ranges, reveal full thinking and retai
     const played: string[] = [];
     const client = { rpc: async (_c: any, input: any) => ({ base64: input.text, mimeType: 'audio/wav' }), playAudio: async (a: any) => { played.push(a.base64); }, openSettings() {} } as unknown as PluginClientContext;
     const runtime = new VoiceRuntime(client);
-    runtime.settings = settingsSchema.parse({ enabled: true, backend: 'kokoro', reasoning: true });
+    runtime.settings = settingsSchema.parse({ enabled: true, backend: 'kokoro', reasoning: true, compactPlan: false, inlineControls: true });
     runtime.agents.set('a', { id: 'a', workspaceId: 'w', provider: 'codex', title: 'Design test' });
     const reader = new TimelineReader('a', () => runtime.settings, () => {});
     reader.ingest('e', [
@@ -284,12 +285,14 @@ test('expanded plan and inline rows share ranges, reveal full thinking and retai
       assert.match(texts(), /Final visible sentence/);
       assert.equal(view.root.findAllByType('Text' as any).filter(n => n.props.numberOfLines !== undefined).length, 0);
       await press('Show full thinking text');
-      await press('Start reading here', 0);
-      await press('Stop reading here', 1);
+      await press('Preview', 0);
+      await press('Preview', 1);
+      await press('Start range here', 0);
+      await press('End range here', 1);
       assert.match(texts(), /Start of selected range/);
       assert.match(texts(), /End of selected range/);
       assert.match(texts(), /Selected reading range/);
-      await press('Exclude from reading', 0);
+      await press('Exclude', 0);
       await press('Play');
       assert.ok(played.length > 1);
       assert.equal(played.some(s => s.includes('Exposed thinking')), false);
@@ -320,7 +323,7 @@ test('inline playback keeps Resume beside a message paused between sentences', a
   const press = async (label: string) => { await act(async () => { view.root.findAllByType('Pressable' as any).find(n => n.props.accessibilityLabel === label)!.props.onPress(); }); };
   try {
     await act(async () => { view = create(React.createElement(Row, { theme: themes[1], layout: { compact: false }, agentId: 'a', timestamp: new Date(), item: { data: { kind: 'assistant_message', text: 'First. Second.', phase: 'complete' } } })); });
-    await press('Read message');
+    await press('Start reading');
     await press('Pause');
     await act(async () => { release(); await new Promise(r => setImmediate(r)); });
     assert.equal(runtime.queue.snapshot().status, 'paused');
@@ -328,4 +331,117 @@ test('inline playback keeps Resume beside a message paused between sentences', a
     await press('Resume');
     assert.equal(runtime.queue.snapshot().pending, 0);
   } finally { release(); await act(async () => view?.unmount()); runtime.dispose(); }
+});
+
+test('live appearance toggle restores host rows without restarting agents or touching queued audio', async () => {
+  const { registerVoiceTimeline } = await components();
+  const transforms = new Map<string, any>();
+  let rendererCount = 0;
+  const client = {
+    addTimelineRenderer() { rendererCount++; return () => { rendererCount--; }; },
+    addTimelineTransformer(entry: any) {
+      assert.equal(transforms.has(entry.id), false);
+      transforms.set(entry.id, entry);
+      return () => { transforms.delete(entry.id); };
+    },
+    rpc: async () => ({}), playAudio: async () => {},
+  } as unknown as PluginClientContext;
+  const runtime = new VoiceRuntime(client);
+  const cleanup = registerVoiceTimeline(client, runtime);
+  try {
+    assert.equal(transforms.size, 0); // host UI is the default
+    assert.equal(rendererCount, 1);
+    runtime.queue.pause();
+    runtime.queue.enqueue([{ agentId: 'a', messageId: 'm', kind: 'assistant_message', text: 'Still queued.' }]);
+    const queueBefore = runtime.queue.snapshot();
+    runtime.armed = true;
+    runtime.target = 'a';
+    const settings = runtime.settings;
+    runtime.setSettings({ ...settings, inlineControls: true });
+    assert.equal(transforms.size, 3);
+    const assistant = transforms.get('voice-assistant');
+    const source = { type: 'assistant_message', text: 'Hello.' };
+    assert.equal(assistant.transform({ item: source, phase: 'complete' }).items[0].kind, 'voice-message');
+    runtime.setSettings({ ...settings, inlineControls: false, compactPlan: false });
+    assert.equal(transforms.size, 0); // removing registrations exposes original host renderer
+    assert.equal(runtime.queue.snapshot(), queueBefore);
+    assert.equal(runtime.armed, true);
+    assert.equal(runtime.target, 'a');
+    runtime.setSettings({ ...settings, inlineControls: true });
+    runtime.changed();
+    assert.equal(transforms.size, 3); // no duplicate registrations on unrelated updates
+  } finally { cleanup(); cleanup(); runtime.dispose(); }
+  assert.equal(transforms.size, 0);
+  assert.equal(rendererCount, 0);
+});
+
+test('header saves appearance with official settings and keeps four message actions on a single row', async () => {
+  const { createHeaderPlan, createVoiceRow, registerVoiceTimeline } = await components();
+  for (const theme of themes) for (const compact of [false, true]) {
+    let values = settingsSchema.parse({ enabled: true, backend: 'kokoro' });
+    let revision = 1;
+    let writes = 0;
+    const registrations = new Set<string>();
+    const client = {
+      rpc: async (contract: any, input: any) => {
+        if (contract.name === 'settings.voice.read') return { status: 'ready', revision: String(revision), values };
+        if (contract.name === 'settings.voice.write') {
+          assert.equal(input.revision, String(revision));
+          values = settingsSchema.parse(input.values); writes++;
+          return { status: 'saved', revision: String(++revision), values };
+        }
+        throw new Error('Unexpected RPC: ' + contract.name);
+      },
+      addTimelineRenderer: () => () => {},
+      addTimelineTransformer: (entry: any) => { registrations.add(entry.id); return () => { registrations.delete(entry.id); }; },
+      playAudio: async () => {}, openSettings() {},
+    } as unknown as PluginClientContext;
+    const runtime = new VoiceRuntime(client);
+    runtime.settings = values;
+    runtime.viewed = 'a';
+    runtime.agents.set('a', { id: 'a', workspaceId: 'w', provider: 'codex', title: 'Example agent' });
+    const { TimelineReader } = await import('../shared/timeline');
+    const reader = new TimelineReader('a', () => runtime.settings, () => {});
+    reader.ingest('e', [
+      { seqStart: 0, seqEnd: 0, item: { type: 'user_message', text: 'A sent message.' } },
+      { seqStart: 1, seqEnd: 1, item: { type: 'reasoning', text: 'Visible thinking.' } },
+      { seqStart: 2, seqEnd: 2, item: { type: 'assistant_message', text: 'Response.\n---\nMore detail.' } },
+    ], false, true);
+    runtime.feeds.set('a', { reader, dispose() {} } as any);
+    const cleanup = registerVoiceTimeline(client, runtime);
+    const Plan = createHeaderPlan(runtime), Row = createVoiceRow(runtime);
+    const props = { theme, host: { id: 'local', label: 'Local' }, layout: { compact, platform: 'web' } };
+    let view!: ReactTestRenderer;
+    const press = async (label: string) => { await act(async () => { view.root.findAllByType('Pressable' as any).find(n => n.props.accessibilityLabel === label)!.props.onPress(); }); };
+    try {
+      await act(async () => { view = create(React.createElement(Plan, { ...props, workspaceId: 'w', context: 'workspace', close() {} })); });
+      assert.equal(view.root.findAllByType('SettingsSelect' as any).length, 0);
+      assert.equal(registrations.size, 0);
+      await press('Show message voice UI');
+      assert.equal(registrations.size, 3);
+      assert.equal(runtime.settings.inlineControls, true);
+      await press('Hide message voice UI');
+      assert.equal(registrations.size, 0);
+      await press('Expand reading plan');
+      assert.equal(view.root.findAllByType('SettingsSelect' as any).length, 1);
+      assert.equal(runtime.settings.compactPlan, false);
+      await press('Shrink reading plan');
+      assert.equal(view.root.findAllByType('SettingsSelect' as any).length, 0);
+      assert.equal(writes, 4);
+      assert.equal(values.backend, 'kokoro');
+      await act(async () => { view.update(React.createElement(React.Fragment, null, ...reader.messages.map(m => React.createElement(Row, { ...props, key: m.id, agentId: 'a', timestamp: new Date(), item: { data: { kind: m.kind, text: m.text, phase: 'complete' } } })))); });
+      const rows = view.root.findAllByType('View' as any).filter(n => / message$/.test(n.props.accessibilityLabel ?? ''));
+      assert.deepEqual(rows.map(n => n.props.accessibilityLabel), ['You message', 'Exposed thinking message', 'Assistant · codex message']);
+      assert.equal(rows[0].props.style.alignSelf, 'flex-end');
+      assert.equal(rows[1].props.style.marginLeft > 0, true);
+      assert.equal(rows[2].props.style.alignSelf, 'stretch');
+      const actionRows = view.root.findAllByType('ScrollView' as any).filter(n => n.props.horizontal);
+      assert.equal(actionRows.length, 3);
+      for (const row of actionRows) {
+        assert.equal(row.props.contentContainerStyle.flexWrap, undefined);
+        assert.deepEqual(row.findAllByType('Pressable' as any).map(n => n.props.accessibilityLabel), ['Start reading', 'Stop', 'Exclude', 'Preview']);
+      }
+      assert.equal(view.root.findAllByType('Text' as any).some(n => n.children.includes('Response.\n---\nMore detail.')), false);
+    } finally { await act(async () => view?.unmount()); cleanup(); runtime.dispose(); }
+  }
 });

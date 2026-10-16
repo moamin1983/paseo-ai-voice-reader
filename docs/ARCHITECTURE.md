@@ -32,7 +32,7 @@ Initial history is consumed silently. Duplicate pages do not requeue content. Ca
 
 ## Native UI
 
-The official transformer API replaces assistant, user-message and exposed-reasoning text rows with plugin-rendered React Native rows. It does not expose an additive action slot inside the built-in message renderer. Full source text remains selectable; the plugin does not reproduce every built-in Markdown style. Tools and other timeline types retain their host renderers.
+When optional message voice UI is enabled, the official transformer API replaces assistant, user-message and exposed-reasoning text rows with plugin-rendered React Native rows. It defaults to off. Hiding the UI removes those transformer registrations so the host returns to its original renderers for existing and streamed messages; showing it adds them again. Display-only setting changes do not stop the audio queue or change the agent lifecycle. It does not expose an additive action slot inside the built-in message renderer. Full source text remains selectable; the plugin does not reproduce every built-in Markdown style. Tools and other timeline types retain their host renderers.
 
 The transformer has no source-sequence field. Inline actions therefore resolve an unambiguous source match using kind, accumulated text, optional provider message ID and timestamp. Ambiguous or unloaded matches leave range actions disabled. The reading plan provides direct selection of exact retained source rows.
 

@@ -91,3 +91,10 @@ test('source inclusion does not treat every code brace as raw JSON', () => {
   assert.equal(sanitize("function greet() { return 'hello'; }", {...p,code:true}),"function greet() { return 'hello'; }");
   assert.equal(sanitize('{"hello":"world"}', {...p,code:true,json:true}),'{"hello":"world"}');
 });
+
+test('decorative message dividers are removed while real source and list content stay intact', async () => {
+  const { removeMessageDividers } = await import('../shared/text');
+  assert.equal(removeMessageDividers('First.\n---\nSecond.\n* * *\nThird.\n___\nLast.'), 'First.\nSecond.\nThird.\nLast.');
+  assert.equal(removeMessageDividers('```text\n---\n```\n---\n- A list item\ntext---text'), '```text\n---\n```\n- A list item\ntext---text');
+  assert.equal(sanitize('First.\n---\nSecond.', p), 'First.\nSecond.');
+});

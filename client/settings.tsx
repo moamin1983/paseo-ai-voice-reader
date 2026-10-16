@@ -100,6 +100,8 @@ function Controls({
   const toggle = (
     key:
       | "enabled"
+      | "inlineControls"
+      | "compactPlan"
       | "assistant"
       | "userMessages"
       | "reasoning"
@@ -179,6 +181,12 @@ function Controls({
             disabled={settings.saving}
             onValueChange={(v) => save("scope", v)}
           />
+        </SettingsCard>
+      </SettingsSection>
+      <SettingsSection title="Message appearance">
+        <SettingsCard>
+          {toggle("inlineControls", "Show voice controls on messages", "Off restores Paseo's original message, assistant and thinking UI immediately. Audio playback is unchanged.")}
+          {toggle("compactPlan", "Compact reading plan", "Keep the header plan small; expand it for full text and range selection.")}
         </SettingsCard>
       </SettingsSection>
       <SettingsSection title="Cloud TTS privacy">

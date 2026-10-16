@@ -27,7 +27,7 @@ It is a native plugin built with the official `@getpaseo/plugin` SDK. Playback u
 | --- | --- |
 | Live narration | Newly completed sentences, with streamed-content deduplication |
 | A visible reading plan | Full spoken text, exact queued sentences and clear range boundaries |
-| Inline controls | Read, preview, include/exclude and select ranges beside text messages |
+| Optional inline controls | Start reading, Stop, Exclude and Preview in one row; restore the original Paseo UI instantly |
 | Exposed thinking | Optional narration of provider-published `reasoning` items |
 | Playback control | Play, Pause, Resume, Stop, Skip and Replay |
 | Voice options | Edge Neural cloud voices or local Kokoro CPU speech |
@@ -81,7 +81,11 @@ Plugins run as trusted code on the daemon and connected client. Review the sourc
 4. Use **Check** to inspect backend readiness, then **Test voice** to hear public sample sentences.
 5. Press **Voice Off** beside an agent composer to turn automatic narration on. Open **Reading plan** in the header to inspect the full text and queue.
 
-To listen to history, mark **Start reading here** and **Stop reading here** beside completed messages, then press **Play** in the reading plan. Both endpoints are included. `/voice` also opens the reader panel.
+The **Reading plan** opens compactly. At the top, **Show message voice UI** adds optional controls, and **Hide message voice UI** restores Paseo's original user, assistant and thinking renderers. No agent restart, conversation reload or playback reset is needed. The original Paseo message UI is the default. These display choices are saved through the plugin settings API and shared by clients of the host.
+
+With voice UI shown, your messages appear on the right, assistant replies are explicitly labeled with their provider, and exposed thinking is indented and expandable. Each message has one row: **Start reading · Stop · Exclude · Preview**. On narrow screens, that row scrolls horizontally rather than wrapping. Decorative Markdown divider lines are omitted from the plugin's text view and narration; stored source and original Paseo rendering remain unchanged.
+
+Use **Expand reading plan** for the full queue, messages and ranges, or **Shrink reading plan** to return to compact mode. To listen to history, open **Preview** on a completed message, mark **Start range here** and **End range here**, then press **Play** in the reading plan. Both endpoints are included. `/voice` also opens the reader panel.
 
 ### Offline Kokoro
 

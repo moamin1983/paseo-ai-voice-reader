@@ -371,3 +371,18 @@ test('mounting timeline rows observes history without changing the automatic nar
     assert.equal(f.runtime.feeds.size, 0);
   } finally { f.runtime.dispose(); }
 });
+
+test('appearance save conflicts keep the original UI choice and report an actionable error', async () => {
+  const initial = settingsSchema.parse({ enabled: true, backend: 'kokoro' });
+  const runtime = new VoiceRuntime({
+    rpc: async (contract: any) => contract.name.endsWith('.read') ? { status: 'ready', revision: '1', values: initial } : { status: 'conflict', error: 'Settings changed; try again.' },
+    playAudio: async () => {},
+  } as unknown as PluginClientContext);
+  runtime.settings = initial;
+  try {
+    await runtime.setAppearance({ inlineControls: true });
+    assert.equal(runtime.settings.inlineControls, false);
+    assert.match(runtime.appearanceError, /try again/);
+    assert.equal(runtime.savingAppearance, false);
+  } finally { runtime.dispose(); }
+});

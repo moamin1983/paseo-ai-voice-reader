@@ -57,8 +57,23 @@ function stripStructured(text: string): string {
   }
   return out;
 }
+// Presentation-only thematic breaks are not speech. Preserve fenced source text.
+export function removeMessageDividers(text: string): string {
+  let fence: { marker: string; length: number } | undefined;
+  return text.split("\n").filter(line => {
+    const marker = line.match(/^ {0,3}(`{3,}|~{3,})/);
+    if (marker) {
+      if (!fence) fence = { marker: marker[1][0], length: marker[1].length };
+      else if (marker[1][0] === fence.marker && marker[1].length >= fence.length &&
+        new RegExp("^ {0,3}" + (fence.marker === "`" ? "`" : "~") + "{" + fence.length + ",}\\s*$").test(line)) fence = undefined;
+      return true;
+    }
+    return !!fence || !/^ {0,3}(?:(?:-[ \t]*){3,}|(?:_[ \t]*){3,}|(?:\*[ \t]*){3,})$/.test(line);
+  }).join("\n");
+}
 export function sanitize(text: string, p: Preferences): string {
   if (!p.secrets && hasSecret(text)) return "";
+  text = removeMessageDividers(text);
   if (!p.json) text = stripStructured(text);
   if (!p.code) {
     text = text.replace(

@@ -5,8 +5,8 @@ Checked on **2026-10-16** with Node.js **22.22.1**, npm **8.6.0**, Python **3.14
 | Check | Result |
 | --- | --- |
 | TypeScript against the installed SDK | Pass |
-| Unit, runtime, schema, queue and native-host UI suite | 57 passed, 0 failed |
-| Clean checkout | Fresh `npm ci --ignore-scripts`, typecheck, all 57 tests, bundle checks and package dry run passed without pre-existing evidence files |
+| Unit, runtime, schema, queue and native-host UI suite | 61 passed, 0 failed |
+| Prior publication clean checkout | Fresh `npm ci --ignore-scripts`, typecheck, the then-current 57 tests, bundle checks and package dry run passed without pre-existing evidence files |
 | Client/server bundle boundaries | Pass; no private host imports or client Node APIs |
 | Native UI audit | Pass; React Native primitives, no DOM/audio elements |
 | Python dependency lock | All 15 transitive packages pinned with PyPI artifact SHA-256 digests; pip hash-enforced resolver dry run passed |
@@ -14,6 +14,12 @@ Checked on **2026-10-16** with Node.js **22.22.1**, npm **8.6.0**, Python **3.14
 | Offline inference boundary | Pass; synthesis succeeded with socket connection, send and DNS entrypoints denied; zero observed network attempts |
 | Edge integration in this preparation | Skipped intentionally; no new cloud request |
 | Public files | CVs, local settings, credentials, model weights, generated audio, evidence and development dependencies excluded from Git |
+
+## Appearance update
+
+The current 61-test suite includes live transformer removal/re-registration, settings conflict handling, queue preservation during appearance changes, compact/expanded plans, distinct user/assistant/thinking roles and single-row actions in light/dark and compact/wide layouts. Decorative divider removal preserves fenced source and list items.
+
+The plugin was reloaded once to load the implementation; this does not restart an agent. Subsequent show/hide and expand/shrink actions use settings and live registrations without plugin reload or agent lifecycle operations. Native settings and timeline metadata confirm that the original UI choice is active, compact mode is enabled, saved audio settings are unchanged, and retained user and assistant rows remain readable. The user confirmed that normal Paseo messages are visible again with the message voice UI off. The optional enhanced view was exercised through host-stub tests; its final desktop appearance has not been captured by automation.
 
 ## Native desktop evidence
 

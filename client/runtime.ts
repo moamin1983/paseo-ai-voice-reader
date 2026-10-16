@@ -211,6 +211,9 @@ export class VoiceRuntime {
   target?: string;
   viewed?: string;
   notice = "";
+  savingAppearance = false;
+  appearanceError = "";
+  private appearanceGeneration = 0;
   private listeners = new Set<() => void>();
   private version = 0;
   private disposed = false;
@@ -258,13 +261,41 @@ export class VoiceRuntime {
   }
   setSettings(p: Preferences) {
     if (JSON.stringify(p) === JSON.stringify(this.settings)) return;
+    const { inlineControls: _oldInline, compactPlan: _oldCompact, ...oldAudio } = this.settings;
+    const { inlineControls: _inline, compactPlan: _compact, ...nextAudio } = p;
+    const audioChanged = JSON.stringify(oldAudio) !== JSON.stringify(nextAudio);
     this.settings = p;
-    this.queue.stop();
-    if (!p.enabled) this.armed = false;
-    if (p.enabled && this.armed) this.queue.resume();
-    this.syncFeeds();
-    this.updatePills();
+    if (audioChanged) {
+      this.queue.stop();
+      if (!p.enabled) this.armed = false;
+      if (p.enabled && this.armed) this.queue.resume();
+      this.syncFeeds();
+      this.updatePills();
+    }
     this.changed();
+  }
+  async setAppearance(patch: Partial<Pick<Preferences, "inlineControls" | "compactPlan">>) {
+    if (this.disposed || this.savingAppearance) return;
+    this.savingAppearance = true;
+    this.appearanceError = "";
+    this.appearanceGeneration++;
+    this.changed();
+    try {
+      const rpc = settingsRpc("voice");
+      const current = await this.client.rpc(rpc.read, {});
+      if (this.disposed) return;
+      if (current.status !== "ready") throw new Error(current.error);
+      const values = { ...settingsSchema.parse(current.values), ...patch };
+      const result = await this.client.rpc(rpc.write, { revision: current.revision, values });
+      if (this.disposed) return;
+      if (result.status !== "saved") throw new Error(result.error);
+      this.setSettings(settingsSchema.parse(result.values));
+    } catch (error) {
+      if (!this.disposed) this.appearanceError = error instanceof Error ? error.message : "Unable to save display preference.";
+    } finally {
+      this.savingAppearance = false;
+      if (!this.disposed) this.changed();
+    }
   }
   async start() {
     void this.observeWorkspaces();
@@ -324,13 +355,15 @@ export class VoiceRuntime {
     if (this.disposed || this.polling) return;
     this.polling = true;
     try {
+      const appearanceGeneration = this.appearanceGeneration;
       const state = await this.client.rpc(settingsRpc("voice").read, {});
       if (this.disposed) return;
-      if (state.status === "ready")
-        this.setSettings(settingsSchema.parse(state.values));
-      else {
-        this.setSettings({ ...this.settings, enabled: false });
-        this.error(state.error);
+      if (!this.savingAppearance && appearanceGeneration === this.appearanceGeneration) {
+        if (state.status === "ready") this.setSettings(settingsSchema.parse(state.values));
+        else {
+          this.setSettings({ ...this.settings, enabled: false });
+          this.error(state.error);
+        }
       }
       if (!this.feeds.size) return;
       const { turns } = await this.client.rpc(turnStatus, {});

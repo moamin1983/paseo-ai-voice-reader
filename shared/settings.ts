@@ -6,6 +6,8 @@ import { z } from "zod";
 
 export const settingsSchema = z.object({
   enabled: z.boolean().default(false),
+  inlineControls: z.boolean().default(false),
+  compactPlan: z.boolean().default(true),
   backend: z.enum(["edge", "kokoro"]).default("edge"),
   cloudConsent: z.boolean().default(false),
   cloudReasoningConsent: z.boolean().default(false),
