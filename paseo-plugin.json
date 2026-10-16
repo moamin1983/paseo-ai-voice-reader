@@ -1,0 +1,8 @@
+{
+  "id": "ai-voice-reader",
+  "name": "AI Voice Reader",
+  "description": "Native sentence-by-sentence narration with Edge Neural and offline Kokoro. Cloud consent required.",
+  "requirements": {
+    "paseo": ">=0.11.4 <0.12.0"
+  }
+}

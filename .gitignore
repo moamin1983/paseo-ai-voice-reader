@@ -1,0 +1,44 @@
+# Dependencies and generated output
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.tsbuildinfo
+coverage/
+dist/
+*.tgz
+
+# Local verification contains machine paths, settings, IDs and test audio
+/evidence/
+/design-previews/
+/SHA256SUMS
+/TEST_RESULTS.md
+/NATIVE_TEST_RESULTS.md
+/UX_UPDATE_RESULTS.md
+
+# Credentials and personal documents never belong in this repository
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+.npmrc.local
+/uploads/
+*.pdf
+
+# Downloaded model weights and generated speech
+/models/
+*.onnx
+*.bin
+*.wav
+*.mp3
+
+# Editor and OS files
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.bak

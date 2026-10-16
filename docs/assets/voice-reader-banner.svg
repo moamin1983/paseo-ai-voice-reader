@@ -1,0 +1,19 @@
+<!-- Copyright (C) 2026 Mohamed Tawfik Amin; SPDX-License-Identifier: GPL-2.0-only -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="340" viewBox="0 0 1280 340" role="img" aria-labelledby="title desc">
+  <title id="title">AI Voice Reader for Paseo</title>
+  <desc id="desc">Native voice playback, visible reading plans, and an offline option. An independent project by Mohamed Tawfik Amin.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#101828"/><stop offset="1" stop-color="#1e2143"/></linearGradient>
+    <linearGradient id="accent"><stop stop-color="#9cafff"/><stop offset="1" stop-color="#79e2cc"/></linearGradient>
+  </defs>
+  <rect width="1280" height="340" rx="22" fill="url(#bg)"/>
+  <rect x="50" y="46" width="190" height="30" rx="15" fill="#2a3151"/>
+  <text x="67" y="66" fill="#c8d2ff" font-family="sans-serif" font-size="13" font-weight="600" letter-spacing="1.2">NATIVE PASEO PLUGIN</text>
+  <text x="50" y="146" fill="#f6f8ff" font-family="sans-serif" font-size="57" font-weight="700">AI Voice Reader</text>
+  <text x="53" y="194" fill="#bdc8dc" font-family="sans-serif" font-size="24">Hear the response. See exactly what comes next.</text>
+  <text x="53" y="244" fill="#88dfcc" font-family="sans-serif" font-size="17">Live narration  /  Clear reading ranges  /  Offline Kokoro</text>
+  <text x="53" y="295" fill="#b6c1d7" font-family="sans-serif" font-size="16">Mohamed Tawfik Amin  ·  Web Developer &amp; AI Engineer</text>
+  <g transform="translate(935 92)" fill="none" stroke="url(#accent)" stroke-width="9" stroke-linecap="round">
+    <path d="M0 68v18M26 43v68M52 14v126M78 0v154M104 33v90M130 52v50M156 24v106M182 44v66M208 64v26"/>
+  </g>
+</svg>

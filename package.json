@@ -1,0 +1,88 @@
+{
+  "name": "ai-voice-reader",
+  "private": true,
+  "version": "1.0.0",
+  "files": [
+    "paseo-plugin.json",
+    "OVERVIEW.md",
+    "README.md",
+    "index.client.tsx",
+    "index.server.ts",
+    "client/",
+    "server/",
+    "shared/",
+    "scripts/setup-tts.sh",
+    "requirements.txt",
+    "requirements.lock.txt",
+    "tsconfig.json",
+    "tests/",
+    "scripts/check-bundles.mjs",
+    "scripts/check-offline.py",
+    ".npmrc",
+    "scripts/native-check.mjs",
+    "scripts/native-timeline-check.ts",
+    "scripts/ux-native-check.ts",
+    "LICENSE",
+    "NOTICE",
+    "docs/",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
+    "CHANGELOG.md",
+    "THIRD_PARTY_NOTICES.md"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts",
+    "build:check": "node scripts/check-bundles.mjs",
+    "test:tts": "tsx --test tests/tts.integration.ts",
+    "test:offline": "python3 scripts/check-offline.py"
+  },
+  "devDependencies": {
+    "@getpaseo/client": "0.11.4",
+    "@getpaseo/plugin": "0.11.4",
+    "@getpaseo/protocol": "0.11.4",
+    "@tanstack/react-query": "^5.90.11",
+    "@types/node": "^22.20.5",
+    "@types/react": "~19.2.0",
+    "@types/react-test-renderer": "^19.3.0",
+    "esbuild": "^0.25.12",
+    "react": "19.1.0",
+    "react-native": "0.81.5",
+    "react-test-renderer": "^19.1.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "zod": "^4.4.3"
+  },
+  "description": "Native Paseo assistant and exposed-reasoning narration with Edge Neural and offline Kokoro",
+  "type": "module",
+  "author": {
+    "name": "Mohamed Tawfik Amin",
+    "email": "m.t.amin1983@gmail.com",
+    "url": "https://github.com/moamin1983"
+  },
+  "license": "GPL-2.0-only",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/moamin1983/paseo-ai-voice-reader.git"
+  },
+  "homepage": "https://github.com/moamin1983/paseo-ai-voice-reader#readme",
+  "bugs": {
+    "url": "https://github.com/moamin1983/paseo-ai-voice-reader/issues",
+    "email": "m.t.amin1983@gmail.com"
+  },
+  "keywords": [
+    "paseo",
+    "paseo-plugin",
+    "text-to-speech",
+    "tts",
+    "kokoro",
+    "edge-tts",
+    "ai",
+    "developer-tools",
+    "react-native",
+    "accessibility"
+  ],
+  "engines": {
+    "node": ">=22"
+  }
+}
