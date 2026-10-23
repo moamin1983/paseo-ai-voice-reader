@@ -2,7 +2,7 @@ AI Voice Reader narrates assistant responses and provider-published reasoning in
 
 Automatic narration reads newly completed sentences without replaying earlier streamed output. All agents share one playback queue on each connected client. Audio plays through Paseo on that client, including when the daemon is remote. Exposed reasoning is optional; hidden model reasoning is never available.
 
-Requires Paseo 0.11.4 and Python on the daemon machine. Edge Neural uses Microsoft cloud TTS and needs explicit consent in Voice settings. Offline Kokoro uses sherpa-onnx CPU inference with local Kokoro model files. Run the documented manual Python setup, then configure the absolute Python executable, plugin worker and local model paths in settings. Activation does not download packages or weights. The tested offline model is English v0.19.
+Requires Paseo 0.11.4 or later, without an upper version limit, and Python on the daemon machine. Edge Neural uses Microsoft cloud TTS and needs explicit consent in Voice settings. Offline Kokoro uses sherpa-onnx CPU inference with local Kokoro model files. Run the documented manual Python setup, then configure the absolute Python executable, plugin worker and local model paths in settings. Activation does not download packages or weights. The tested offline model is English v0.19.
 
 The master switch is off initially. Choose a backend, enable the master switch, then press Voice On for the narration target on this client. Settings include voice, speed, current-target/all-agent scope, assistant/reasoning filters, and optional code, JSON, log text, and sensitive-text inclusion. Settings are shared by clients of the same host. Automatic playback arming is client-local and resets on reload.
 

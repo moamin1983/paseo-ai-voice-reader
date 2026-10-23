@@ -6,7 +6,7 @@
 
 Live narration · Full reading previews · Offline speech · Controls beside your messages
 
-![Paseo SDK 0.11.4](https://img.shields.io/badge/Paseo_SDK-0.11.4-899bff)
+![Paseo 0.11.4 and later](https://img.shields.io/badge/Paseo-0.11.4%2B-899bff)
 ![TypeScript](https://img.shields.io/badge/TypeScript-React_Native-3178c6)
 ![Python](https://img.shields.io/badge/Python-Edge_%2B_Kokoro-66bda7)
 [![License GPLv2](https://img.shields.io/badge/License-GPLv2-blue)](LICENSE)
@@ -47,7 +47,9 @@ It is a native plugin built with the official `@getpaseo/plugin` SDK. Playback u
 
 ## Get started
 
-The tested environment is **Ubuntu**, **Paseo 0.11.4**, **Node.js 22**, and **Python 3.14**. The manifest accepts Paseo `>=0.11.4 <0.12.0`. Other operating systems and later Paseo versions have not been validated.
+Requires **Paseo 0.11.4 or later**, with **no upper version limit**. Development SDKs are pinned to 0.12.0 for reproducibility; they do not restrict which Paseo host versions can load the plugin. The tested host environment is Ubuntu with Paseo 0.11.4 and 0.12.0, Node.js 22 and Python 3.14.
+
+New Paseo versions remain allowed automatically. Future breaking API changes can still affect functionality; users can turn Voice Off or disable the plugin in Paseo if needed. We do not impose a speculative version ceiling. See [compatibility policy](docs/COMPATIBILITY.md).
 
 ### 1. Prepare the source and speech dependencies
 

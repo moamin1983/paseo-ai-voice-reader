@@ -1,5 +1,11 @@
 # Validation
 
+## Compatibility update, 2026-10-23
+
+Paseo 0.12.0 was blocked by the old manifest ceiling, before initialization. Version 1.0.1 uses `>=0.11.4` without an upper bound and pins development SDKs to 0.12.0. Typecheck, all 64 automated tests and bundle checks pass. The existing plugin was reloaded successfully on the installed 0.12.0 daemon and reports running. Native Kokoro synthesis produced a 162,530-byte WAV using public canned text; native timeline subscription, retained history and duplicate-page suppression pass. No agent was restarted and no global plugin switch was changed. See [compatibility policy and matrix](COMPATIBILITY.md).
+
+## Earlier verification
+
 Checked on **2026-10-16** with Node.js **22.22.1**, npm **8.6.0**, Python **3.14.4**, and the installed Paseo **0.11.4** SDK. This is a local verification summary; the included GitHub Actions template is inactive and has not run on GitHub.
 
 | Check | Result |

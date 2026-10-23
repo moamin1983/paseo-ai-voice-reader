@@ -75,7 +75,7 @@ for (const runtime of ["client", "server"]) {
     `${runtime}: bundle built; runtime imports and file boundaries checked (${result.outputFiles[0].contents.length} bytes).`,
   );
 }
-for (const file of ["reader.tsx", "settings.tsx", "runtime.ts", "queue.ts", "timeline.tsx", "voice-ui.tsx"]) {
+for (const file of ["reader.tsx", "settings.tsx", "runtime.ts", "queue.ts", "timeline.tsx", "voice-ui.tsx", "rail.tsx"]) {
   const text = await readFile(`client/${file}`, "utf8");
   if (
     /(?<![.\w])(?:document|window|navigator)\.|localStorage|<(?:div|span|button|input|audio|section|p)[ >]|className=|onClick=/.test(

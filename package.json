@@ -1,7 +1,7 @@
 {
   "name": "ai-voice-reader",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "files": [
     "paseo-plugin.json",
     "OVERVIEW.md",
@@ -28,19 +28,21 @@
     "CONTRIBUTING.md",
     "SECURITY.md",
     "CHANGELOG.md",
-    "THIRD_PARTY_NOTICES.md"
+    "THIRD_PARTY_NOTICES.md",
+    "scripts/check-compatibility.mjs"
   ],
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts",
     "build:check": "node scripts/check-bundles.mjs",
     "test:tts": "tsx --test tests/tts.integration.ts",
-    "test:offline": "python3 scripts/check-offline.py"
+    "test:offline": "python3 scripts/check-offline.py",
+    "test:compatibility": "node scripts/check-compatibility.mjs"
   },
   "devDependencies": {
-    "@getpaseo/client": "0.11.4",
-    "@getpaseo/plugin": "0.11.4",
-    "@getpaseo/protocol": "0.11.4",
+    "@getpaseo/client": "0.12.0",
+    "@getpaseo/plugin": "0.12.0",
+    "@getpaseo/protocol": "0.12.0",
     "@tanstack/react-query": "^5.90.11",
     "@types/node": "^22.20.5",
     "@types/react": "~19.2.0",

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.1
+
+- Remove the speculative Paseo `<0.12.0` ceiling. Hosts from 0.11.4 onward can load the plugin, including future releases.
+- Update development SDKs to 0.12.0 and verify the existing API contracts, streaming, playback queue and native backend.
+- Add a compatibility check matrix for the minimum SDK, current SDK and latest published SDK. Users retain control over disabling the plugin if a future update breaks an API.
+
 ## Unreleased
 
 - Restore the original Paseo message UI by default, with a persistent show/hide button at the top of Reading plan. Toggling needs no agent restart or conversation reload.

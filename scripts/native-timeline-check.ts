@@ -15,7 +15,7 @@ const client = new DaemonClient({
   url: process.env.PASEO_WS_URL ?? "ws://127.0.0.1:6767/ws",
   clientId: "ai-voice-reader-timeline-check",
   clientType: "cli",
-  appVersion: "0.11.4",
+  appVersion: process.env.PASEO_CHECK_APP_VERSION ?? "0.12.0",
   localCredential: async () =>
     (await readFile(process.env.PASEO_LOCAL_CREDENTIAL_FILE ?? join(homedir(), ".paseo/local-credential"), "utf8")).trim(),
   reconnect: { enabled: false },
